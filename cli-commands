@@ -2,4 +2,6 @@
 aws cloudformation update-stack --stack-name org-atribo-org-devfet-bucketav --template-url https://s3.amazonaws.com/awsmp-fulfillment-cf-templates-prod/39d58953-9c3f-4b5d-a00c-3df2aa282f32/78b0e97f-b916-454b-8c2d-c8e326ad755f.template --parameters '[{"ParameterKey":"ScanDelayInSeconds","ParameterValue":"5"},{"ParameterKey":"VPC","ParameterValue":"vpc-0de45e8ba2a7d9061"},{"ParameterKey":"KeyName","ParameterValue":"org-devfet-ec2_key"},{"ParameterKey":"Subnets","ParameterValue":"subnet-00994002fc93be00b,subnet-03b554bebc608d23d,subnet-087670b26b6934647"}]' --capabilities CAPABILITY_IAM
 anti virus scan https://github.com/widdix/aws-s3-virusscan
 
-redirect https://www.youtube.com/watch?v=-hklUJDl82I
+redirect using S3 nd cloudfront and http to https https://www.youtube.com/watch?v=-hklUJDl82I
+
+mysql -h swipe-prd-maindb.cva4phzn7hr6.us-west-2.rds.amazonaws.com -P <port_number> -u s<username> -p <password>
