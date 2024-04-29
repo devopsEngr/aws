@@ -1,0 +1,22 @@
+{
+    "hubName": "CaseRight Workspace",
+    "portal": {
+        "uri": "/sm-portal-api",
+        "sessionTimeout": 120
+    },
+    "contentApiUri": "https://cms.${domain}",
+    "google": {
+        "recaptcha": {
+            "sitekey": "${google_recaptcha_site_key}",
+            "secretkey" : "${google_recaptcha_secret_key}"
+        }
+    },
+    "testMode": {
+        "isEnabled": false,
+        "statusPanelName": "${env}",
+        "emailRestrictionStatus": "On",
+        "panelDataLoadedStatus": "None",
+        "contentStatus": "In Review"
+    },
+       "projectsConfigurations":  ${project_configurations}
+}
