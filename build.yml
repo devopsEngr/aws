@@ -1,0 +1,963 @@
+variables:
+  ecrregion: ap-southeast-2
+  tag: $[replace(variables['Build.SourceBranch'], 'refs/tags/', '')]
+  local_tag: $[replace(variables['Build.SourceBranch'], 'refs/tags/', 'tags/')]
+  ${{ if startsWith(variables['Build.SourceBranch'], 'refs/heads/') }}:
+    branchName: $[ replace(variables['Build.SourceBranch'], 'refs/heads/', '') ]
+
+resources:
+  repositories:
+    - repository: SubmissionManagement
+      type: git
+      name: AtriboCloud/SubmissionManagement
+      ref: $(branchName)
+      trigger:
+        tags:
+          include:
+          - v*
+    - repository: ApplicantHub
+      type: git
+      name: 'AtriboCloud/Applicant-Hub'
+      ref: ${{ variables['Build.SourceBranch'] }}
+          
+stages:
+- stage: Build
+  variables:
+  - group: NUGET_FEED
+  displayName: Build image
+  jobs:
+  - deployment: 'BuildDev'
+    displayName: Build
+    timeoutInMinutes: 120
+    pool:
+      vmImage: ubuntu-latest
+    environment: 'dev'   
+#sm-portal-ui
+  - job: Build_sm_portal_ui
+    steps:
+    - checkout: self
+    - checkout: ApplicantHub
+      fetchTags: true
+      path: 's/SubmissionManagement/SourceCode/Portal.UI/ClientApp/Applicant-Hub'
+    - script: 'git -C SubmissionManagement/SourceCode/Portal.UI/ClientApp/Applicant-Hub checkout $(local_tag) -b current'
+    - task: Docker@2
+      displayName: Build image sm-portal-ui
+      inputs:
+        repository: 'sm-portal-ui'
+        command: 'build'
+        Dockerfile: 'SubmissionManagement/SourceCode/Portal.UI/ClientApp/Dockerfile'
+        buildContext: 'SubmissionManagement/SourceCode/Portal.UI/ClientApp/'
+        tags: '$(tag)'
+        arguments: '--build-arg NPM_TOKEN=$(NPM_TOKEN)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-portal-ui
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-portal-ui'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-portal-ui'
+        pushTag: '$(tag)'    
+#atribo-serverless-identity-lambda
+  - job: Build_atribo_serverless_identity_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image atribo-serverless-identity-lambda
+      inputs:
+        repository: 'atribo-serverless-identity'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/Atribo.Serverless.Identity/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR atribo-serverless-identity-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'atribo-serverless-identity'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'atribo-serverless-identity'
+        pushTag: '$(tag)'
+
+#cognito-create-auth
+  - job: Build_cognito_create_auth_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image cognito-create-auth-lambda
+      inputs:
+        repository: 'cognito-create-auth-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/Cognito.CreateAuth.Lambda/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR cognito-create-auth-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'cognito-create-auth-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'cognito-create-auth-lambda'
+        pushTag: '$(tag)'
+
+#cognito-define-auth-lambda
+  - job: Build_cognito_define_auth_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image cognito-define-auth-lambda
+      inputs:
+        repository: 'cognito-define-auth-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/Cognito.DefineAuth.Lambda/Dockerfile'
+        buildContext: 'SourceCode/Serverless/Cognito.DefineAuth.Lambda/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR cognito-define-auth-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'cognito-define-auth-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'cognito-define-auth-lambda'
+        pushTag: '$(tag)'
+
+#cognito-post-authentication-lambda
+  - job: Build_cognito_post_authentication_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image cognito-post-authentication-lambda
+      inputs:
+        repository: 'cognito-post-authentication-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/Cognito.PostAuthentication.Lambda/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR cognito-post-authentication-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'cognito-post-authentication-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'cognito-post-authentication-lambda'
+        pushTag: '$(tag)'
+
+#cognito-pre-authentication-lambda
+  - job: Build_cognito_pre_authentication_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image cognito-pre-authentication-lambda
+      inputs:
+        repository: 'cognito-pre-authentication-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/Cognito.PreAuthentication.Lambda/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR cognito-pre-authentication-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'cognito-pre-authentication-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'cognito-pre-authentication-lambda'
+        pushTag: '$(tag)'
+
+#cognito-pre-sign-up-lambda
+  - job: Build_cognito_pre_sign_up_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image cognito-pre-sign-up-lambda
+      inputs:
+        repository: 'cognito-pre-sign-up-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/Cognito.PreSignUp.Lambda/Dockerfile'
+        buildContext: 'SourceCode/Serverless/Cognito.PreSignUp.Lambda/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR cognito-pre-sign-up-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'cognito-pre-sign-up-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'cognito-pre-sign-up-lambda'
+        pushTag: '$(tag)'
+
+#cognito-verify-auth-lambda
+  - job: Build_cognito_verify_auth_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image cognito-verify-auth-lambda
+      inputs:
+        repository: 'cognito-verify-auth-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/Cognito.VerifyAuth.Lambda/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR cognito-verify-auth-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'cognito-verify-auth-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'cognito-verify-auth-lambda'
+        pushTag: '$(tag)'
+
+#comms-history-lambda
+  - job: Build_comms_history_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image comms-history-lambda
+      inputs:
+        repository: 'comms-history-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/AtriboCommsHistoryLambda/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR comms-history-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'comms-history-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'comms-history-lambda'
+        pushTag: '$(tag)'
+
+#communication-scheduler-lambda
+  - job: Build_communication_scheduler_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image communication-scheduler-lambda
+      inputs:
+        repository: 'communication-scheduler-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/Communication.Scheduler.Lambda/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR communication-scheduler-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'communication-scheduler-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'communication-scheduler-lambda'
+        pushTag: '$(tag)'
+
+#audit-lambda
+  - job: Build_audit_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image audit-lambda
+      inputs:
+        repository: 'audit-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/DynamoDB.Audit.Lambda/Dockerfile'
+        buildContext: 'SourceCode/Serverless/DynamoDB.Audit.Lambda/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR audit-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'audit-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'audit-lambda'
+        pushTag: '$(tag)'
+
+#dynamodb-data-retrieval-lambda
+  - job: Build_dynamodb_data_retrieval_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image dynamodb-data-retrieval-lambda
+      inputs:
+        repository: 'sm-dynamodb-data-retrieval-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/DynamoDB.DataRetrieval.Lambda/Dockerfile'
+        buildContext: 'SourceCode/Serverless/DynamoDB.DataRetrieval.Lambda/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR dynamodb-data-retrieval-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-dynamodb-data-retrieval-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-dynamodb-data-retrieval-lambda'
+        pushTag: '$(tag)'
+
+#BulkUpdateFileProcessingService
+  - job: Build_bulkUpdate_file_processing_service
+    steps:
+    - task: Docker@2
+      displayName: Build image BulkUpdateFileProcessingService
+      inputs:
+        repository: 'sm-bulkupdatesvc'
+        command: 'build'
+        Dockerfile: 'SourceCode/BulkUpdateFileProcessingService/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR BulkUpdateFileProcessingService
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-bulkupdatesvc'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-bulkupdatesvc'
+        pushTag: '$(tag)'
+
+#sm-comms-send-email-lambda
+  - job: Build_sm_comms_send_email_lambda
+    steps:
+      - task: Docker@2
+        displayName: Build image sm-comms-send-email-lambda
+        inputs:
+          repository: 'sm-comms-send-email-lambda'
+          command: 'build'
+          Dockerfile: 'SourceCode/Serverless/AtriboCommsSendEmailLambda/Dockerfile'
+          buildContext: 'SourceCode/'
+          tags: '$(tag)'
+          arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+          addPipelineData: false
+          addBaseImageData: false
+
+      - task: ECRPushImage@1
+        displayName: Push to ECR sm-comms-send-email-lambda
+        inputs: 
+            awsCredentials: 'AWS-ECR'
+            regionName: '$(ecrregion)'
+            imageSource: 'imagename'
+            sourceImageName: 'sm-comms-send-email-lambda'
+            sourceImageTag: '$(tag)'
+            repositoryName: 'sm-comms-send-email-lambda'
+            pushTag: '$(tag)'
+
+#sm-comms-send-sms-lambda
+  - job: Build_sm_comms_send_sms_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-comms-send-sms-lambda
+      inputs:
+          repository: 'sm-comms-send-sms-lambda'
+          command: 'build'
+          Dockerfile: 'SourceCode/Serverless/AtriboCommsSendSmsLambda/Dockerfile'
+          buildContext: 'SourceCode/'
+          tags: '$(tag)'
+          arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+          addPipelineData: false
+          addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-comms-send-sms-lambda
+      inputs:
+          awsCredentials: 'AWS-ECR'
+          regionName: '$(ecrregion)'
+          imageSource: 'imagename'
+          sourceImageName: 'sm-comms-send-sms-lambda'
+          sourceImageTag: '$(tag)'
+          repositoryName: 'sm-comms-send-sms-lambda'
+          pushTag: '$(tag)'
+
+#sm-comms-send-whatsapp-lambda
+  - job: Build_sm_comms_send_whatsapp_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-comms-send-whatsapp-lambda
+      inputs:
+          repository: 'sm-comms-send-whatsapp-lambda'
+          command: 'build'
+          Dockerfile: 'SourceCode/Serverless/AtriboCommsSendWhatsAppLambda/Dockerfile'
+          buildContext: 'SourceCode/'
+          tags: '$(tag)'
+          arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+          addPipelineData: false
+          addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-comms-send-whatsapp-lambda
+      inputs:
+          awsCredentials: 'AWS-ECR'
+          regionName: '$(ecrregion)'
+          imageSource: 'imagename'
+          sourceImageName: 'sm-comms-send-whatsapp-lambda'
+          sourceImageTag: '$(tag)'
+          repositoryName: 'sm-comms-send-whatsapp-lambda'
+          pushTag: '$(tag)'
+
+#sm-comms-templating-lambda
+  - job: Build_sm_comms_send_templating_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-comms-templating-lambda
+      inputs:
+        repository: 'sm-comms-templating-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/AtriboCommsTemplatingLambda/Dockerfile'
+        buildContext: 'SourceCode/Serverless/AtriboCommsTemplatingLambda/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-comms-templating-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-comms-templating-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-comms-templating-lambda'
+        pushTag: '$(tag)'
+
+#sm-dashboard-service
+  - job: Build_sm_dashboard_service
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-dashboard-service
+      inputs:
+        repository: 'sm-dashboard-service'
+        command: 'build'
+        Dockerfile: 'SourceCode/Dashboard.Service/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-dashboard-service
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-dashboard-service'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-dashboard-service'
+        pushTag: '$(tag)'
+
+#sm-data-api
+  - job: Build_sm_data_api
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-data-api
+      inputs:
+        repository: 'sm-data-api'
+        command: 'build'
+        Dockerfile: 'SourceCode/Data.API/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-data-api
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-data-api'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-data-api'
+        pushTag: '$(tag)'
+
+#sm-extract-service
+  - job: Build_sm_extract_service
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-extract-service
+      inputs:
+        repository: 'sm-extract-service'
+        command: 'build'
+        Dockerfile: 'SourceCode/Extract.Service/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-extract-service
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-extract-service'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-extract-service'
+        pushTag: '$(tag)'
+
+#sm-messagequeue-lambda
+  - job: Build_sm_messagequeue_service
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-messagequeue-lambda
+      inputs:
+        repository: 'sm-messagequeue-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/MessageQueue.Project.Lambda/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-messagequeue-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-messagequeue-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-messagequeue-lambda'
+        pushTag: '$(tag)'
+
+#sm-portal-api
+  - job: Build_sm_portal_api
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-portal-api
+      inputs:
+        repository: 'sm-portal-api'
+        command: 'build'
+        Dockerfile: 'SourceCode/Portal.API/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-portal-api
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-portal-api'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-portal-api'
+        pushTag: '$(tag)'
+
+#sm-setupuser-lambda
+  - job: Build_sm_setupuser_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-setupuser-lambda
+      inputs:
+        repository: 'sm-setupuser-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/Atribo.SetupUser.Lambda/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-setupuser-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-setupuser-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-setupuser-lambda'
+        pushTag: '$(tag)'
+
+#sm-statustransition-service
+  - job: Build_sm_statustransition_service
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-statustransition-service
+      inputs:
+        repository: 'sm-statustransition-service'
+        command: 'build'
+        Dockerfile: 'SourceCode/WorkFlow.StatusTransitionService/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-statustransition-service
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-statustransition-service'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-statustransition-service'
+        pushTag: '$(tag)'
+
+#sm-useridentifier-lambda
+  - job: Build_sm_useridentifier_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-useridentifier-lambda
+      inputs:
+        repository: 'sm-useridentifier-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/UserIdentifier.Lambda/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-useridentifier-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-useridentifier-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-useridentifier-lambda'
+        pushTag: '$(tag)'
+
+#sm-pdf-processing-lambda
+  - job: Build_sm_pdf_processing_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-pdf-processing-lambda
+      inputs:
+        repository: 'sm-pdf-processing-lambda'
+        command: 'build'
+        Dockerfile: 'SourceCode/Serverless/Pdf.Processing.Lambda/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-pdf-processing-lambda
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-pdf-processing-lambda'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-pdf-processing-lambda'
+        pushTag: '$(tag)'
+
+#sm-comms-delivery-data-lambda
+  - job: Build_sm_comms_delivery_data_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-comms-delivery-data-lambda
+      inputs:
+          repository: 'sm-comms-delivery-data-lambda'
+          command: 'build'
+          Dockerfile: 'SourceCode/AtriboCommsStoreDeliveryDataLambda/Dockerfile'
+          buildContext: 'SourceCode/'
+          tags: '$(tag)'
+          arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+          addPipelineData: false
+          addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-comms-delivery-data-lambda
+      inputs:
+          awsCredentials: 'AWS-ECR'
+          regionName: '$(ecrregion)'
+          imageSource: 'imagename'
+          sourceImageName: 'sm-comms-delivery-data-lambda'
+          sourceImageTag: '$(tag)'
+          repositoryName: 'sm-comms-delivery-data-lambda'
+          pushTag: '$(tag)'
+#sms-receiving-lambda
+  - job: Build_sms_receiving_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image sms-receiving-lambda
+      inputs:
+          repository: 'sm-sms-receiving-lambda'
+          command: 'build'
+          Dockerfile: 'SourceCode/Serverless/AtriboCommsSMSReceivingLambda/Dockerfile'
+          buildContext: 'SourceCode/'
+          tags: '$(tag)'
+          arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+          addPipelineData: false
+          addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-sms-receiving-lambda
+      inputs:
+          awsCredentials: 'AWS-ECR'
+          regionName: '$(ecrregion)'
+          imageSource: 'imagename'
+          sourceImageName: 'sm-sms-receiving-lambda'
+          sourceImageTag: '$(tag)'
+          repositoryName: 'sm-sms-receiving-lambda'
+          pushTag: '$(tag)'
+
+#email-receiving-lambda
+  - job: Build_email_receiving_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image email-receiving-lambda
+      inputs:
+          repository: 'sm-email-receiving-lambda'
+          command: 'build'
+          Dockerfile: 'SourceCode/Serverless/AtriboCommsEmailReceivingLambda/Dockerfile'
+          buildContext: 'SourceCode/'
+          tags: '$(tag)'
+          arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+          addPipelineData: false
+          addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-email-receiving-lambda
+      inputs:
+          awsCredentials: 'AWS-ECR'
+          regionName: '$(ecrregion)'
+          imageSource: 'imagename'
+          sourceImageName: 'sm-email-receiving-lambda'
+          sourceImageTag: '$(tag)'
+          repositoryName: 'sm-email-receiving-lambda'
+          pushTag: '$(tag)'
+
+#sm-dynamodb-datasync-consoleapp
+  - job: Build_sm_dynamodb_datasync_consoleapp
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-dynamodb-datasync-consoleapp
+      inputs:
+          repository: 'sm-dynamodb-datasync-consoleapp'
+          command: 'build'
+          Dockerfile: 'SourceCode/DynamoDB.DataSync.ConsoleApp/Dockerfile'
+          buildContext: 'SourceCode/'
+          tags: '$(tag)'
+          arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+          addPipelineData: false
+          addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-dynamodb-datasync-consoleapp
+      inputs:
+          awsCredentials: 'AWS-ECR'
+          regionName: '$(ecrregion)'
+          imageSource: 'imagename'
+          sourceImageName: 'sm-dynamodb-datasync-consoleapp'
+          sourceImageTag: '$(tag)'
+          repositoryName: 'sm-dynamodb-datasync-consoleapp'
+          pushTag: '$(tag)'
+
+  #dynamodb-snapshot-schema-manager-lambda
+  - job: Build_dynamodb_snapshot_schema_manager_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build dynamodb-snapshot-schema-manager-lambda image
+      inputs:
+          repository: 'dynamodb-snapshot-schema-manager-lambda'
+          command: 'build'
+          Dockerfile: 'SourceCode/Serverless/Atribo.Lambdas.DynamoDBSnapshotSchemaManager/Dockerfile'
+          buildContext: 'SourceCode/'
+          tags: '$(tag)'
+          arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+          addPipelineData: false
+          addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR dynamodb-snapshot-schema-manager-lambda
+      inputs:
+          awsCredentials: 'AWS-ECR'
+          regionName: '$(ecrregion)'
+          imageSource: 'imagename'
+          sourceImageName: 'dynamodb-snapshot-schema-manager-lambda'
+          sourceImageTag: '$(tag)'
+          repositoryName: 'dynamodb-snapshot-schema-manager-lambda'
+          pushTag: '$(tag)'
+
+  #dynamodb-stream-handler-lambda
+  - job: Build_dynamodb_stream_handler_lambda
+    steps:
+    - task: Docker@2
+      displayName: Build image
+      inputs:
+          repository: 'dynamodb-stream-handler-lambda'
+          command: 'build'
+          Dockerfile: 'SourceCode/Serverless/Atribo.Lambdas.DynamoDBStreamHandler/Dockerfile'
+          buildContext: 'SourceCode/'
+          tags: '$(tag)'
+          arguments: '--build-arg awsRegion=$(awsregion) --build-arg FEED_ACCESSTOKEN=$(PAT)'
+          addPipelineData: false
+          addBaseImageData: false
+    - task: ECRPushImage@1
+      displayName: Push to ECR
+      inputs:
+          awsCredentials: 'AWS-ECR'
+          regionName: '$(ecrregion)'
+          imageSource: 'imagename'
+          sourceImageName: 'dynamodb-stream-handler-lambda'
+          sourceImageTag: '$(tag)'
+          repositoryName: 'dynamodb-stream-handler-lambda'
+          pushTag: '$(tag)'
+
+#sm-analytics-service
+  - job: Build_sm_analytics_service
+    steps:
+    - task: Docker@2
+      displayName: Build image sm-analytics-service
+      inputs:
+        repository: 'sm-analytics-service'
+        command: 'build'
+        Dockerfile: 'SourceCode/Analytics.Service/Dockerfile'
+        buildContext: 'SourceCode/'
+        tags: '$(tag)'
+        arguments: '--build-arg FEED_ACCESSTOKEN=$(PAT)'
+        addPipelineData: false
+        addBaseImageData: false
+
+    - task: ECRPushImage@1
+      displayName: Push to ECR sm-analytics-service
+      inputs:
+        awsCredentials: 'AWS-ECR'
+        regionName: '$(ecrregion)'
+        imageSource: 'imagename'
+        sourceImageName: 'sm-analytics-service'
+        sourceImageTag: '$(tag)'
+        repositoryName: 'sm-analytics-service'
+        pushTag: '$(tag)'
+
+# #Trigger CD pipeline
+# - stage: RunDeployPipeline_Functional_Testing
+#   jobs:
+#   - job: Trigger
+#     pool:
+#       vmImage: 'ubuntu-latest'
+#     steps:
+#     - task: PowerShell@2
+#       inputs:
+#         targetType: 'inline'
+#         script: |
+#           $token = "$(System.AccessToken)"
+#           $url = "$(System.TeamFoundationCollectionUri)"
+#           $project = "SubmissionManagement"
+#           $definitionId = 9323  # Replace with definition ID, you can capture it from URL 
+#           $body = @{
+#             resources = @{
+#               pipelines = @{
+#                 pipeline = @{
+#                   id = $definitionId
+#                 }
+#               }
+#             }
+#             templateParameters = @{
+#                 variablegroup = "functional-testing.reach.us.atribo.com"
+#                 version = "$(tag)"
+#                 }
+#           }
+#           | ConvertTo-Json -Depth 99
+#           $headers = @{
+#             Authorization = "Bearer $token"
+#             "Content-Type" = "application/json"
+#           }
+#           Write-Host $token
+#           Write-Host $url
+#           Write-Host $project
+#           Write-Host $body
+#           $response = Invoke-RestMethod -Uri "https://dev.azure.com/thereachagency/AtriboCloud/_apis/pipelines/9323/runs?api-version=7.0" -Method POST -Headers $headers -Body $body 
+#           Write-Host $response
+
+# #Trigger CD pipeline
+# - stage: RunDeployPipeline_Reach_Development
+#   jobs:
+#   - job: Trigger
+#     pool:
+#       vmImage: 'ubuntu-latest'
+#     steps:
+#     - task: PowerShell@2
+#       inputs:
+#         targetType: 'inline'
+#         script: |
+#           $token = "$(System.AccessToken)"
+#           $url = "$(System.TeamFoundationCollectionUri)"
+#           $project = "SubmissionManagement"
+#           $definitionId = 9323  # Replace with definition ID, you can capture it from URL 
+#           $body = @{
+#             resources = @{
+#               pipelines = @{
+#                 pipeline = @{
+#                   id = $definitionId
+#                 }
+#               }
+#             }
+#             templateParameters = @{
+#                 variablegroup = "development.reach.au.atribo.com"
+#                 version = "$(tag)"
+#                 }
+#           }
+#           | ConvertTo-Json -Depth 99
+#           $headers = @{
+#             Authorization = "Bearer $token"
+#             "Content-Type" = "application/json"
+#           }
+#           Write-Host $token
+#           Write-Host $url
+#           Write-Host $project
+#           Write-Host $body
+#           $response = Invoke-RestMethod -Uri "https://dev.azure.com/thereachagency/AtriboCloud/_apis/pipelines/9323/runs?api-version=7.0" -Method POST -Headers $headers -Body $body 
+#           Write-Host $response
