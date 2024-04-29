@@ -1,0 +1,530 @@
+parameters:
+  - name: variablegroup
+    type: string
+    default: client_group
+  - name: version
+    type: string
+    default: deploy_version
+
+variables:
+ - group: ${{parameters.variablegroup}}
+ - name: appversion
+   value: ${{parameters.version}}
+
+name: ${{parameters.version}}
+
+resources:
+  repositories:
+    - repository: SubmissionManagement
+      type: git
+      name: AtriboCloud/SubmissionManagement
+      ref: $(client_branch)
+      trigger:
+      - none
+
+stages:
+- stage: Deploy
+  displayName: Deploy images
+  jobs:
+  - deployment: 'Deploy'
+    displayName: Deploy services
+    pool:
+      vmImage: ubuntu-latest
+    environment: 'dev'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: SubmissionManagement
+            
+            - task: AWSShellScript@1
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  aws ecs describe-task-definition --task-definition $(env)-sm-data-api --region $(awsregion) --query 'taskDefinition.{containerDefinitions:containerDefinitions}' | jq --arg image "436186951226.dkr.ecr.ap-southeast-2.amazonaws.com/sm-data-api:$(appversion)" '.containerDefinitions[].image=$image' > task-definition.json
+                  aws ecs register-task-definition --family $(env)-sm-data-api --region $(awsregion) --cli-input-json file://task-definition.json
+                  revision=`aws ecs describe-task-definition --task-definition $(env)-sm-data-api --region $(awsregion) | egrep "revision" | awk '{print $2}' | tr -d ','`
+                  echo "New revision number $revision"
+                  aws ecs update-service --region $(awsregion) --cluster $(env)-cluster --service $(env)-sm-data-api --task-definition $(env)-sm-data-api:$revision
+
+            - task: AWSShellScript@1
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  aws ecs describe-task-definition --task-definition $(env)-sm-extract-service --region $(awsregion) --query 'taskDefinition.{containerDefinitions:containerDefinitions}' | jq --arg image "436186951226.dkr.ecr.ap-southeast-2.amazonaws.com/sm-extract-service:$(appversion)" '.containerDefinitions[].image=$image' > task-definition.json
+                  aws ecs register-task-definition --family $(env)-sm-extract-service --region $(awsregion) --cli-input-json file://task-definition.json
+                  revision=`aws ecs describe-task-definition --task-definition $(env)-sm-extract-service --region $(awsregion) | egrep "revision" | awk '{print $2}' | tr -d ','`
+                  echo "New revision number $revision"
+                  aws ecs update-service --region $(awsregion) --cluster $(env)-cluster --service $(env)-sm-extract-service --task-definition $(env)-sm-extract-service:$revision
+
+            - task: AWSShellScript@1
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  aws ecs describe-task-definition --task-definition $(env)-sm-portal-api --region $(awsregion) --query 'taskDefinition.{containerDefinitions:containerDefinitions}' | jq --arg image "436186951226.dkr.ecr.ap-southeast-2.amazonaws.com/sm-portal-api:$(appversion)" '.containerDefinitions[].image=$image' > task-definition.json
+                  aws ecs register-task-definition --family $(env)-sm-portal-api --region $(awsregion) --cli-input-json file://task-definition.json
+                  revision=`aws ecs describe-task-definition --task-definition $(env)-sm-portal-api --region $(awsregion) | egrep "revision" | awk '{print $2}' | tr -d ','`
+                  echo "New revision number $revision"
+                  aws ecs update-service --region $(awsregion) --cluster $(env)-cluster --service $(env)-sm-portal-api --task-definition $(env)-sm-portal-api:$revision
+
+            - task: AWSShellScript@1
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  aws ecs describe-task-definition --task-definition $(env)-sm-portal-ui --region $(awsregion) --query 'taskDefinition.{containerDefinitions:containerDefinitions}' | jq --arg image "436186951226.dkr.ecr.ap-southeast-2.amazonaws.com/sm-portal-ui:$(appversion)" '.containerDefinitions[].image=$image' > task-definition.json
+                  aws ecs register-task-definition --family $(env)-sm-portal-ui --region $(awsregion) --cli-input-json file://task-definition.json
+                  revision=`aws ecs describe-task-definition --task-definition $(env)-sm-portal-ui --region $(awsregion) | egrep "revision" | awk '{print $2}' | tr -d ','`
+                  echo "New revision number $revision"
+                  aws ecs update-service --region $(awsregion) --cluster $(env)-cluster --service $(env)-sm-portal-ui --task-definition $(env)-sm-portal-ui:$revision
+
+            - task: AWSShellScript@1
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  aws ecs describe-task-definition --task-definition $(env)-sm-dashboard-service --region $(awsregion) --query 'taskDefinition.{containerDefinitions:containerDefinitions}' | jq --arg image "436186951226.dkr.ecr.ap-southeast-2.amazonaws.com/sm-dashboard-service:$(appversion)" '.containerDefinitions[].image=$image' > task-definition.json
+                  aws ecs register-task-definition --family $(env)-sm-dashboard-service --region $(awsregion) --cli-input-json file://task-definition.json
+                  revision=`aws ecs describe-task-definition --task-definition $(env)-sm-dashboard-service --region $(awsregion) | egrep "revision" | awk '{print $2}' | tr -d ','`
+                  echo "New revision number $revision"
+                  aws ecs update-service --region $(awsregion) --cluster $(env)-cluster --service $(env)-sm-dashboard-service --task-definition $(env)-sm-dashboard-service:$revision
+
+            - task: AWSShellScript@1
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  aws ecs describe-task-definition --task-definition $(env)-sm-statustransition-service --region $(awsregion) --query 'taskDefinition.{containerDefinitions:containerDefinitions}' | jq --arg image "436186951226.dkr.ecr.ap-southeast-2.amazonaws.com/sm-statustransition-service:$(appversion)" '.containerDefinitions[].image=$image' > task-definition.json
+                  aws ecs register-task-definition --family $(env)-sm-statustransition-service --region $(awsregion) --cli-input-json file://task-definition.json
+                  revision=`aws ecs describe-task-definition --task-definition $(env)-sm-statustransition-service --region $(awsregion) | egrep "revision" | awk '{print $2}' | tr -d ','`
+                  echo "New revision number $revision"
+                  aws ecs update-service --region $(awsregion) --cluster $(env)-cluster --service $(env)-sm-statustransition-service --task-definition $(env)-sm-statustransition-service:$revision
+
+
+                
+            - task: AWSShellScript@1
+              displayName: Check image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=atribo-serverless-identity --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-atribo-serverless-identity --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/atribo-serverless-identity:$(appversion)'
+            - task: AWSShellScript@1
+              displayName: Check image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-setupuser-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-SetupUser --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-setupuser-lambda:$(appversion)'
+
+            - task: AWSShellScript@1
+              displayName: Check image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=cognito-create-auth-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-cognitocreateauth --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/cognito-create-auth-lambda:$(appversion)'
+
+            - task: AWSShellScript@1
+              displayName: Check image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=cognito-define-auth-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-cognitodefineauth --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/cognito-define-auth-lambda:$(appversion)'
+
+            - task: AWSShellScript@1
+              displayName: Check image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=cognito-post-authentication-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-cognitopostauth --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/cognito-post-authentication-lambda:$(appversion)'
+                                        
+            - task: AWSShellScript@1
+              displayName: Check image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=cognito-pre-authentication-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-cognitopreauth --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/cognito-pre-authentication-lambda:$(appversion)'
+                                                    
+            - task: AWSShellScript@1
+              displayName: Check image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=cognito-pre-sign-up-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-cognitopresignup --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/cognito-pre-sign-up-lambda:$(appversion)'
+                                                    
+            - task: AWSShellScript@1
+              displayName: Check image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=cognito-verify-auth-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-cognitoverifyauth --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/cognito-verify-auth-lambda:$(appversion)'
+                                 
+            - task: AWSShellScript@1
+              displayName: Check image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-messagequeue-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-ProjectMessageQueue --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-messagequeue-lambda:$(appversion)'
+
+            - task: AWSShellScript@1
+              displayName: Check image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-useridentifier-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-UserIdentifier --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-useridentifier-lambda:$(appversion)'
+                
+            - task: AWSShellScript@1
+              displayName: Check image availability -  dynamodb-data-retrieval-lambda
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-dynamodb-data-retrieval-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+
+            - task: AWSCLI@1
+              displayName: AWS Lambda Update
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-dynamodb-data-retrieval-lambda --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-dynamodb-data-retrieval-lambda:$(appversion)'
+            
+            - task: AWSShellScript@1
+              displayName: Check sm-pdf-processing-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-pdf-processing-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update sm-pdf-processing-lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-sm-pdf-processing-lambda --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-pdf-processing-lambda:$(appversion)'
+            
+            - task: AWSShellScript@1
+              displayName: Check comms-history-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=comms-history-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update comms-history-lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-comms-history --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/comms-history-lambda:$(appversion)'
+
+            - task: AWSShellScript@1
+              displayName: Check sm-comms-send-whatsapp-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-comms-send-whatsapp-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update sm-comms-send-whatsapp-lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-atribo-comms-send-whatsApp-lambda --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-comms-send-whatsapp-lambda:$(appversion)'
+
+            - task: AWSShellScript@1
+              displayName: Check sm-comms-send-email-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-comms-send-email-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update sm-comms-send-email-lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-atribo-comms-send-email-lambda --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-comms-send-email-lambda:$(appversion)'
+
+            - task: AWSShellScript@1
+              displayName: Check sm-comms-send-sms-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-comms-send-sms-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update sm-comms-send-sms-lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-atribo-comms-send-sms-lambda --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-comms-send-sms-lambda:$(appversion)'
+
+     
+
+
+            - task: AWSShellScript@1
+              displayName: Check communication-scheduler-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=communication-scheduler-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update communication-scheduler-lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-communication-scheduler-lambda --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/communication-scheduler-lambda:$(appversion)'
+
+            - task: AWSShellScript@1
+              displayName: Check comms-templating-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-comms-templating-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update comms-templating-lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-comms-templating-lambda --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-comms-templating-lambda:$(appversion)'
+            
+            - task: AWSShellScript@1
+              displayName: Check sm-comms-delivery-data-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-comms-delivery-data-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update sm-comms-delivery-data-lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-sm-comms-delivery-data-lambda --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-comms-delivery-data-lambda:$(appversion)'
+                
+            - task: AWSShellScript@1
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  aws ecs describe-task-definition --task-definition $(env)-sm-bulkupdatesvc --region $(awsregion) --query 'taskDefinition.{containerDefinitions:containerDefinitions}' | jq --arg image "436186951226.dkr.ecr.ap-southeast-2.amazonaws.com/sm-bulkupdatesvc:$(appversion)" '.containerDefinitions[].image=$image' > task-definition.json
+                  aws ecs register-task-definition --family $(env)-sm-bulkupdatesvc --region $(awsregion) --cli-input-json file://task-definition.json
+                  revision=`aws ecs describe-task-definition --task-definition $(env)-sm-bulkupdatesvc --region $(awsregion) | egrep "revision" | awk '{print $2}' | tr -d ','`
+                  echo "New revision number $revision"
+                  aws ecs update-service --region $(awsregion) --cluster $(env)-cluster --service $(env)-sm-bulkupdatesvc --task-definition $(env)-sm-bulkupdatesvc:$revision
+
+            - task: AWSShellScript@1
+              displayName: Check email-receiving-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-email-receiving-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update email-receiving-lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-email-receiving-lambda --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-email-receiving-lambda:$(appversion)'
+
+            - task: AWSShellScript@1
+              displayName: Check sms-receiving-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=sm-sms-receiving-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update sms-receiving-lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-sms-receiving-lambda --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/sm-sms-receiving-lambda:$(appversion)'
+            
+            - task: AWSShellScript@1
+              displayName: Check dynamodb-snapshot-schema-manager-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=dynamodb-snapshot-schema-manager-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update DynamoDBSnapshotSchemaManager Lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-DynamoDBSnapshotSchemaManager --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/dynamodb-snapshot-schema-manager-lambda:$(appversion)'
+            
+            - task: AWSShellScript@1
+              displayName: Check dynamodb-snapshot-schema-manager-lambda image availability
+              inputs:
+                awsCredentials: 'AWS-ECR'
+                regionName: '$(awsregion)'
+                scriptType: 'inline'
+                inlineScript: |
+                  while ! aws ecr describe-images --repository-name=dynamodb-stream-handler-lambda --image-ids=imageTag='$(appversion)'; do sleep 30; done
+            
+            - task: AWSCLI@1
+              displayName: Update DynamoDBStreamHandler Lambda
+              inputs:
+                awsCredentials: '$(awscreds)'
+                regionName: '$(awsregion)'
+                awsCommand: 'lambda'
+                awsSubCommand: 'update-function-code'
+                awsArguments: '--function-name $(env)-DynamoDBStreamHandler --image-uri 436186951226.dkr.ecr.$(awsregion).amazonaws.com/dynamodb-stream-handler-lambda:$(appversion)'
