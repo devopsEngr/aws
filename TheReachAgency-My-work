@@ -26,6 +26,7 @@ Scenario: 3. ECS cluster images check coming from recent build or else the clust
  
 
 Scenario: 4. Automated deployment in Terraform based on the commit and tag using TFC_CONFIGURATION_VERSION_GIT_TAG variable and regex pattern of the tag in terraformcloud
+First created python script to invoke api call to terraform with expected tag to trigger a deployment but then was not able to figure out above variable in Terraformcloud that could help solve problem easily without api call.
 
 Scenario: 5. First time did RDS SSL certificate upgrade for on-prem application
 
