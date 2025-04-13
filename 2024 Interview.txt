@@ -1,0 +1,78 @@
+CBA 2024 Interview 
+Refractor Terraform code to host multiple websites with parent base domain under one account
+
+Multiple api gateway for each project hosted in the account
+ 
+
+Backup and Redirect website swipe a to swipe b
+
+
+Manual backup of data - rds, s3, dynamo and cognito user pool
+Redirect website using s3 and route53
+ 
+
+ECS cluster images check coming from recent build or else the cluster loads the previous version
+
+Terraform code optimized to handle this at deployment level by reading the ECR repo for the image version
+This involved updateing ecr repo permissions to read image
+ 
+
+Automated deployment in Terraform based on the commit and tag using TFC_CONFIGURATION_VERSION_GIT_TAG variable and regex pattern of the tag
+
+RDS SSL certificate upgrade
+
+AWS backup DRP
+
+Backup and restore snapshot and continuous
+
+ 
+
+Api gateway logs to be enabled from terraform
+
+Null resource bug-> they have to be sequenced
+
+ 
+
+Two way sms for communication module inbound outbound
+
+Email receving notification should trigger the lambda subscription
+
+ 
+
+ 
+
+ 
+
+Started with terraform cli moved terraform cloud
+
+Wanted to Explore  and work on Terraform Enterprise
+
+Hashicorp vault
+
+Keen on working infrastructure model of on-prem with cloud (have worked on Linux based Data centers or recent role all infra on cloud)
+
+JD assumption:
+
+https://www.glassdoor.com.au/job-listing/devops-cloud-engineer-cyber-focus-commonwealth-bank-of-australia-JV_IC2235932_KO0,33_KE34,64.htm?jl=1009142291331&utm_source=jobactivity&utm_medium=email&utm_content=jas-recentjobs-jobpos1-1009142291331&utm_campaign=jas&src=GD_JOB_AD&uido=D1CB44E686401B84&ao=1136043&cs=1_96ce5c01&s=239&t=JA&pos=101&guid=0000018e0b92b6c98a30f21a9b5836ff&jobListingId=1009142291331&vt=e&cb=1709591148443&ctt=1709594486264
+
+Questions:
+
+1. Cloud native application api, trigger
+
+Ans: I should have talked about the basics of the cloud architecture we have for Atribo - VPC, 2 subnets within it…ui components (apis) are in angular that are also running as service in ECS cluster, application microservices (as apis) in ECS cluster which is setup as EC2 type small medium large sizes.
+
+RDS for SQL database and Dynamo for NoSQL DB
+
+Initial Seeding users by creating username and password for each api by terraform logging in
+
+There is a Lambda to add users to Database which reads the config from ParamStore
+ 
+
+There is a ssm parameter
+
+
+Keywords to use
+
+Uderlying infra to run the application and its microservices
+
+reusable, self-service platforms to increase software delivery.
