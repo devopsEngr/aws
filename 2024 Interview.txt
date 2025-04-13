@@ -1,51 +1,59 @@
-CBA 2024 Interview 
-Refractor Terraform code to host multiple websites with parent base domain under one account
+CBA 2024 Interview with TheReachAgency Scenarios I worked on 
+Keywords to use:
 
-Multiple api gateway for each project hosted in the account
+Uderlying infra to run the application and its microservices
+reusable, self-service platforms to increase software delivery.
+Enabling automated, consistent, and repeatable deployments using AzureDevOps and Terraformcloud
+Designing and managing multiple environments (development, UAT, production) using Terraform,
+ensuring consistent configurations and streamlined workflows.
+reusable pipeline 
+
+Scenario: 1. Refractor Terraform code to host multiple websites with parent base domain under one account
+             Multiple api gateway for each project hosted in the account
+             Multiple CF distribution
  
 
-Backup and Redirect website swipe a to swipe b
+Scenario: 2. Implemented Backup and Redirect of website A client A to client B subsidary (swipe a to swipe b)
+             Redirect website using s3 and route53
+             Took Manual backup of data - rds, s3, dynamo and cognito user pool for client A before taking down their production
 
 
-Manual backup of data - rds, s3, dynamo and cognito user pool
-Redirect website using s3 and route53
+Scenario: 3. ECS cluster images check coming from recent build or else the cluster loads the previous version
+             conditionally create the ECS task definition only if the ECR image exists with that tag else skip creating task definition
+             Realised while troubleshooting an issue. 3 of the microservices were not coming up and were stuck updating and eventually failed complaining tag doesnt exist.
+             Terraform code optimized to handle this at deployment level by reading the ECR repo for the image version
+             This involved updateing ecr repo permissions to read image
  
 
-ECS cluster images check coming from recent build or else the cluster loads the previous version
+Scenario: 4. Automated deployment in Terraform based on the commit and tag using TFC_CONFIGURATION_VERSION_GIT_TAG variable and regex pattern of the tag in terraformcloud
 
-Terraform code optimized to handle this at deployment level by reading the ECR repo for the image version
-This involved updateing ecr repo permissions to read image
- 
+Scenario: 5. First time did RDS SSL certificate upgrade for on-prem application
 
-Automated deployment in Terraform based on the commit and tag using TFC_CONFIGURATION_VERSION_GIT_TAG variable and regex pattern of the tag
+Scenario: 6. Implemented AWS backup DRP plan and documented each step for back and restore with the drill
+             Backup and restore snapshot and continuous and point in time recovery.
 
-RDS SSL certificate upgrade
-
-AWS backup DRP
-
-Backup and restore snapshot and continuous
-
- 
-
-Api gateway logs to be enabled from terraform
+Scenario: 7. Implemented Api gateway logs to be enabled from terraform code
 
 Null resource bug-> they have to be sequenced
-
  
 
-Two way sms for communication module inbound outbound
+Scenario: 8. Implement communication using AWS services: 
+          Two way sms for communication module inbound outbound
+           Email receving notification should trigger the lambda subscription
+           Developed a notification system using AWS SNS, Lambda, and long codes to automate alerts and
+           notifications, enhancing communication and response times. 
 
-Email receving notification should trigger the lambda subscription
+Scenario: 9. Utilizing AWS CloudWatch for monitoring and logging application performance, setting up custom
+alarms and dashboards to proactively identify and resolve issues, ensuring high availability and
+reliability. 
 
- 
+Scenario: 10.  Managing Amazon ECR repositories, including lifecycle and replication policies, to ensure efficient
+storage usage and seamless replication across various AWS regions. 
 
- 
-
- 
 
 Started with terraform cli moved terraform cloud
 
-Wanted to Explore  and work on Terraform Enterprise
+Wanted to Explore and work on Terraform Enterprise
 
 Hashicorp vault
 
@@ -67,12 +75,7 @@ Initial Seeding users by creating username and password for each api by terrafor
 
 There is a Lambda to add users to Database which reads the config from ParamStore
  
-
 There is a ssm parameter
 
 
-Keywords to use
 
-Uderlying infra to run the application and its microservices
-
-reusable, self-service platforms to increase software delivery.
